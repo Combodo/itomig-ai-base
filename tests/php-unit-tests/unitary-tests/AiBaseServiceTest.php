@@ -5,9 +5,9 @@
 
 namespace Itomig\iTop\AiBase\Test;
 
-use Combodo\iTop\Test\UnitTest\ItopTestCase;
+use Combodo\iTop\Test\UnitTest\ItopDataTestCase;
 
-class AiBaseServiceTest extends ItopTestCase
+class AiBaseServiceTest extends ItopDataTestCase
 {
 	public function setUp(): void
 	{
