@@ -17,6 +17,6 @@ class AiBaseServiceTest extends ItopTestCase
 
 	public function testAssertTrueTrue()
 	{
-		$this->assertTrue(false);
+		$this->assertTrue(true);
 	}
 }
