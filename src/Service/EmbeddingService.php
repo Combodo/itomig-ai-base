@@ -1,5 +1,7 @@
 <?php
 
+namespace Itomig\iTop\Extension\AIBase\Service;
+
 use Combodo\iTop\Service\InterfaceDiscovery\InterfaceDiscovery;
 use Itomig\iTop\Extension\AIBase\Engine\iAIEngineInterface;
 use Itomig\iTop\Extension\AIBase\Exception\AIConfigurationException;
