@@ -27,6 +27,7 @@ use Dict;
 use Itomig\iTop\Extension\AIBase\Engine\iAIEngineInterface;
 use Itomig\iTop\Extension\AIBase\Exception\AIResponseException;
 use Itomig\iTop\Extension\AIBase\Exception\AIConfigurationException;
+use Itomig\iTop\Extension\AIBase\Exception\NotImplementedException;
 use Itomig\iTop\Extension\AIBase\Helper\AIBaseHelper;
 use MetaModel;
 use utils;
@@ -178,4 +179,5 @@ class AIService
 		}
 		return $sDesiredAIEngineClass;
 	}
+
 }

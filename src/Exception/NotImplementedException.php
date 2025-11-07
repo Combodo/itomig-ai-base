@@ -3,7 +3,6 @@
  * @copyright Copyright (C) 2024 ITOMIG GmbH
  * @license http://opensource.org/licenses/AGPL-3.0
  * @author Lars Kaltefleiter <lars.kaltefleiter@itomig.de>
- * @author David Gümbel <david.guembel@itomig.de>
  *
  * This file is part of iTop.
  *
@@ -21,33 +20,9 @@
  * along with iTop. If not, see <http://www.gnu.org/licenses/>
  */
 
-namespace Itomig\iTop\Extension\AIBase\Engine;
+namespace Itomig\iTop\Extension\AIBase\Exception;
 
-interface iAIEngineInterface
+class NotImplementedException extends \CoreException
 {
-	/**
-	 * Get name of the engine
-	 * @return string
-	 */
-	public static function GetEngineName() : string;
-
-	/**
-	 * Create an instance of the current engine
-	 * @param array $configuration
-	 * @return iAIEngineInterface
-	 */
-	public static function GetEngine($configuration) : iAIEngineInterface;
-
-	/**
-	 * Perform prompt and return result
-	 * @param string $message
-	 * @param string $systemInstruction
-	 * @return string
-	 */
-	public function GetCompletion($message, $systemInstruction = '') : string;
-
-
-	public function GetEmbeddingGenerator();
-
 
 }
