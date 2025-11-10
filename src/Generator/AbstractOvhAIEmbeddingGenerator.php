@@ -6,25 +6,17 @@
 
 namespace Itomig\iTop\Extension\AIBase\Generator;
 
-use Combodo\iTop\AmineTest\Helper\AmineTestLog;
 use Exception;
 use Itomig\iTop\Extension\AIBase\Config\OvhAIConfig;
 use Itomig\iTop\Extension\AIBase\Exception\NotImplementedException;
 use LLPhant\Embeddings\Document;
 use LLPhant\Embeddings\DocumentUtils;
 use LLPhant\Embeddings\EmbeddingGenerator\EmbeddingGeneratorInterface;
-use LLPhant\OpenAIConfig;
 use OpenAI;
 use OpenAI\Contracts\ClientContract;
 
-use GuzzleHttp\Client as GuzzleClient;
-use GuzzleHttp\HandlerStack;
-use GuzzleHttp\Middleware;
-use GuzzleHttp\Psr7\Utils;
-use Psr\Http\Message\ResponseInterface;
 
-
-class AbstractOvhAIEmbeddingGenerator implements EmbeddingGeneratorInterface
+abstract class AbstractOvhAIEmbeddingGenerator implements EmbeddingGeneratorInterface
 {
 	public ClientContract $client;
 
@@ -95,8 +87,5 @@ class AbstractOvhAIEmbeddingGenerator implements EmbeddingGeneratorInterface
 		throw new NotImplementedException('Not implemented yet');
 	}
 
-	public function getEmbeddingLength(): int
-	{
-		return 1024;
-	}
+	abstract public function getEmbeddingLength(): int;
 }
