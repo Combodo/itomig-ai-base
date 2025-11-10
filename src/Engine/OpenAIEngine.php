@@ -25,6 +25,7 @@ namespace Itomig\iTop\Extension\AIBase\Engine;
 
 use IssueLog;
 use Itomig\iTop\Extension\AIBase\Exception\NonExistingModelException;
+use LLPhant\Embeddings\EmbeddingGenerator\EmbeddingGeneratorInterface;
 use LLPhant\Embeddings\EmbeddingGenerator\OpenAI\OpenAI3LargeEmbeddingGenerator;
 use LLPhant\Embeddings\EmbeddingGenerator\OpenAI\OpenAI3SmallEmbeddingGenerator;
 use LLPhant\Embeddings\EmbeddingGenerator\OpenAI\OpenAIADA002EmbeddingGenerator;
@@ -85,7 +86,7 @@ class OpenAIEngine extends GenericAIEngine implements iAIEngineInterface
 		// TODO error handling in LLPhant ( #2) ?
 	}
 
-	public function GetEmbeddingGenerator(): OpenAIADA002EmbeddingGenerator|OpenAI3SmallEmbeddingGenerator|OpenAI3LargeEmbeddingGenerator
+	public function GetEmbeddingGenerator(): EmbeddingGeneratorInterface
 	{
 		$config = new OpenAIConfig();
 		$config->apiKey = $this->apiKey;

@@ -26,6 +26,7 @@ namespace Itomig\iTop\Extension\AIBase\Engine;
 use Itomig\iTop\Extension\AIBase\Exception\NotImplementedException;
 use LLPhant\AnthropicConfig;
 use LLPhant\Chat\AnthropicChat;
+use LLPhant\Embeddings\EmbeddingGenerator\EmbeddingGeneratorInterface;
 
 class AnthropicAIEngine extends GenericAIEngine implements iAIEngineInterface
 {
@@ -75,7 +76,7 @@ class AnthropicAIEngine extends GenericAIEngine implements iAIEngineInterface
 	/**
 	 * @throws \Itomig\iTop\Extension\AIBase\Exception\NotImplementedException
 	 */
-	public function GetEmbeddingGenerator()
+	public function GetEmbeddingGenerator(): EmbeddingGeneratorInterface
 	{
 		throw new NotImplementedException('not implemented yet');
 	}

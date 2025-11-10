@@ -25,6 +25,7 @@ namespace Itomig\iTop\Extension\AIBase\Engine;
 
 use http\Exception;
 use Itomig\iTop\Extension\AIBase\Exception\NotImplementedException;
+use LLPhant\Embeddings\EmbeddingGenerator\EmbeddingGeneratorInterface;
 use LLPhant\OllamaConfig;
 use LLPhant\Chat\OllamaChat;
 
@@ -90,7 +91,7 @@ class OllamaAIEngine extends GenericAIEngine implements iAIEngineInterface
 	/**
 	 * @throws \Itomig\iTop\Extension\AIBase\Exception\NotImplementedException
 	 */
-	public function GetEmbeddingGenerator()
+	public function GetEmbeddingGenerator(): EmbeddingGeneratorInterface
 	{
 		throw new NotImplementedException('not implemented yet');
 	}

@@ -23,6 +23,8 @@
 
 namespace Itomig\iTop\Extension\AIBase\Engine;
 
+use LLPhant\Embeddings\EmbeddingGenerator\EmbeddingGeneratorInterface;
+
 interface iAIEngineInterface
 {
 	/**
@@ -47,7 +49,7 @@ interface iAIEngineInterface
 	public function GetCompletion($message, $systemInstruction = '') : string;
 
 
-	public function GetEmbeddingGenerator();
+	public function GetEmbeddingGenerator() : EmbeddingGeneratorInterface;
 
 
 }

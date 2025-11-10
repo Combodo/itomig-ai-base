@@ -24,6 +24,7 @@
 namespace Itomig\iTop\Extension\AIBase\Engine;
 
 use Itomig\iTop\Extension\AIBase\Exception\NotImplementedException;
+use LLPhant\Embeddings\EmbeddingGenerator\EmbeddingGeneratorInterface;
 use LLPhant\MistralAIConfig;
 use \OpenAIConfig;
 use LLPhant\Chat\MistralAIChat;
@@ -77,7 +78,7 @@ class MistralAIEngine extends GenericAIEngine implements iAIEngineInterface
 	/**
 	 * @throws \Itomig\iTop\Extension\AIBase\Exception\NotImplementedException
 	 */
-	public function GetEmbeddingGenerator()
+	public function GetEmbeddingGenerator(): EmbeddingGeneratorInterface
 	{
 		throw new NotImplementedException('not implemented yet');
 	}
