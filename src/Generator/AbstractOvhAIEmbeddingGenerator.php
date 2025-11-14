@@ -27,7 +27,7 @@ abstract class AbstractOvhAIEmbeddingGenerator implements EmbeddingGeneratorInte
 {
 	public ClientContract $client;
 
-	public int $batch_size_limit = 50;
+	public int $batch_size_limit = 25;
 
 	public string $apiKey;
 
