@@ -6,6 +6,7 @@ use Combodo\iTop\Service\InterfaceDiscovery\InterfaceDiscovery;
 use Itomig\iTop\Extension\AIBase\Engine\iAIEngineInterface;
 use Itomig\iTop\Extension\AIBase\Exception\AIConfigurationException;
 use Itomig\iTop\Extension\AIBase\Helper\AIBaseHelper;
+use LLPhant\Embeddings\Document;
 use LLPhant\Embeddings\EmbeddingGenerator\EmbeddingGeneratorInterface;
 use MetaModel;
 
@@ -75,10 +76,30 @@ class EmbeddingService
 	{
 		return $this->embeddingGenerator->embedText($sMessage);
 	}
+
+
 	public function GetEmbeddingLength(): int
 	{
 		return $this->embeddingGenerator->getEmbeddingLength();
 
+	}
+
+	public function GetEmbeddingsForTexts(array $aTexts): array
+	{
+		$aDocuments = [];
+		foreach ($aTexts as $i => $sText){
+			$oDoc = new Document();
+			$oDoc->content = $sText;
+			$aDocuments[$i] = $oDoc;
+		}
+
+		$aDocuments = $this->embeddingGenerator->embedDocuments($aDocuments);
+
+		$aEmbeddings = [];
+		foreach ($aDocuments as $i => $oDoc){
+			$aEmbeddings[$i] = $oDoc->embedding;
+		}
+		return $aEmbeddings;
 	}
 
 }

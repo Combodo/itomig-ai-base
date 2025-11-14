@@ -61,15 +61,18 @@ abstract class AbstractOvhAIEmbeddingGenerator implements EmbeddingGeneratorInte
 	public function embedText(string $text): array
 	{
 		$textUtf8 = str_replace("\n", ' ', DocumentUtils::toUtf8($text));
-
-		$response = $this->client->embeddings()->create([
-			'model' => $this->getModelName(),
-			'input' => [$textUtf8],
-		]);
-
-		return $response->embeddings[0]->embedding;
-
+		try {
+			$response = $this->client->embeddings()->create([
+				'model' => $this->getModelName(),
+				'input' => [$textUtf8],
+			]);
+			return $response->embeddings[0]->embedding;
+		} catch (\Throwable $e) {
+			error_log('Error embedding text: ' . $text . ' - ' . $e->getMessage());
+			return [];
+		}
 	}
+
 
 	/**
 	 * @throws \Itomig\iTop\Extension\AIBase\Exception\NotImplementedException
