@@ -140,6 +140,14 @@ class DecisionService
 		string $sQuestionId,
 		string $sExpectedType
 	): Answer {
+		$aRequestQuestions = $oRequest->aQuestions;
+		if (array_key_exists($sQuestionId, $aRequestQuestions)
+			&& is_array($aRequestQuestions[$sQuestionId])
+			&& !array_key_exists('type', $aRequestQuestions[$sQuestionId])) {
+			$aRequestQuestions[$sQuestionId]['type'] = $sExpectedType;
+			$oRequest = new DecisionRequest($oRequest->mState, $aRequestQuestions);
+		}
+
 		$aQuestions = $this->ValidateRequest($oRequest);
 		if (!isset($aQuestions[$sQuestionId]) || $aQuestions[$sQuestionId]['type'] !== $sExpectedType) {
 			throw new \InvalidArgumentException("Question '$sQuestionId' is not of type '$sExpectedType'.");

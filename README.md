@@ -291,7 +291,7 @@ Unlike the chat engines, embedding engines are **not** discovered via `Interface
 
 - **EmbeddingService** (`src/Service/EmbeddingService.php`): **New in 26.3.0.** Thin wrapper around an `iEmbeddingEngineInterface` engine's LLPhant generator. Provides `GetEmbedding(string $sMessage): array` for a single text, `GetEmbeddingsForTexts(array $aTexts): array` for a batch keyed by the caller's own array keys, and `GetEmbeddingsForChunkedTexts(array $aChunkedTexts): array` for pre-chunked documents (nested by chunk number). `GetEmbeddingGeneratorMaxBatchSize()` and `GetEmbeddingLength()` expose the engine's batching limit and vector dimensionality. Intended for consumer extensions building retrieval/similarity features (e.g. semantic search over tickets or FAQ entries); this extension does not persist or index embeddings itself.
 
-- **DecisionService** (`src/Service/DecisionService.php`): Validates named Noul, Choice, and Score questions and returns LLPhant's `NoulAnswer`, `ChoiceAnswer`, and `ScoreAnswer` instances in `DecisionResponse::aAnswers`, keyed by caller-supplied question IDs. The type handlers validate question definitions and ensure each answer class matches its question type; AI Base does not further validate answer-value ranges or consistency with criteria. `DecideNoul()`, `DecideChoice()`, and `DecideScore()` each execute a decision request and return the matching LLPhant answer by question ID. The decision engine interface returns the same `DecisionResponse` wrapper, including provider metadata and input/output token usage. Decision calls use LLPhant's `JevClassifier`; configure its API base for TypeSafe, OpenRouter, or another compatible System One endpoint. There is no separate OpenRouter decision engine. This service is separate from `AIService` and intentionally does not run guardrails.
+- **DecisionService** (`src/Service/DecisionService.php`): Validates named Noul, Choice, and Score questions and returns LLPhant's `NoulAnswer`, `ChoiceAnswer`, and `ScoreAnswer` instances in `DecisionResponse::aAnswers`, keyed by caller-supplied question IDs. The type handlers validate question definitions and ensure each answer class matches its question type; AI Base does not further validate answer-value ranges or consistency with criteria. `DecideNoul()`, `DecideChoice()`, and `DecideScore()` each execute a decision request and return the matching LLPhant answer by question ID; the selected typed helper supplies the question type when it is omitted from that question definition. Other questions in the same request and calls to generic `Decide()` still require explicit types. The decision engine interface returns the same `DecisionResponse` wrapper, including provider metadata and input/output token usage. Decision calls use LLPhant's `JevClassifier`; configure its API base for TypeSafe, OpenRouter, or another compatible System One endpoint. There is no separate OpenRouter decision engine. This service is separate from `AIService` and intentionally does not run guardrails.
 
 Example:
 
@@ -947,6 +947,19 @@ If adding additional response processing, add it to the `AIBaseHelper` class.
 | --- | --- | --- |
 | Matching Noul, Choice, or Score question | Execute the decision request and return `NoulAnswer`, `ChoiceAnswer`, or `ScoreAnswer`, respectively. | Not covered by automated tests; tests were not requested for this rename. |
 | Missing question ID or question type does not match the selected method | Throw `InvalidArgumentException` before invoking the decision engine. | Not covered by automated tests; behavior is unchanged by this rename. |
+
+### Typed decision helpers infer the target question type - 18/11/2026
+
+**Implemented:** `DecideNoul()`, `DecideChoice()`, and `DecideScore()` now infer the target question's type from the helper when its `type` field is absent. An explicitly supplied type is not overridden. Other questions in the request must still include their own types, and generic `Decide()` continues to require explicit types.
+
+**Test interface:** Call a typed `DecisionService` method with a `DecisionRequest` whose target question has `instructions` and `criteria` but no `type`, plus its question ID. Observe that the engine receives the inferred type and the method returns the corresponding typed LLPhant answer. Use a fake engine to verify invalid or missing types fail before the engine call.
+
+| Edge case | Expected behavior | Test(s) |
+| --- | --- | --- |
+| Target question omits `type` and uses `DecideChoice()` | Infer `choice`, invoke the engine with the normalized request, and return the `ChoiceAnswer`. | Focused offline fake-engine smoke check; no automated test requested. |
+| Target question explicitly declares a different type | Preserve it and throw `InvalidArgumentException` before invoking the engine. | Focused offline fake-engine smoke check; no automated test requested. |
+| Another question in the same request omits `type` | Reject the request before invoking the engine; only the target question type is inferred. | Focused offline fake-engine smoke check; no automated test requested. |
+| Generic `Decide()` receives a question without `type` | Reject the request before invoking the engine. | Existing generic validation remains unchanged; no automated test requested. |
 
 ### 26.3.0 (TBD)
 
