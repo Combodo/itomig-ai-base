@@ -291,6 +291,39 @@ Unlike the chat engines, embedding engines are **not** discovered via `Interface
 
 - **EmbeddingService** (`src/Service/EmbeddingService.php`): **New in 26.3.0.** Thin wrapper around an `iEmbeddingEngineInterface` engine's LLPhant generator. Provides `GetEmbedding(string $sMessage): array` for a single text, `GetEmbeddingsForTexts(array $aTexts): array` for a batch keyed by the caller's own array keys, and `GetEmbeddingsForChunkedTexts(array $aChunkedTexts): array` for pre-chunked documents (nested by chunk number). `GetEmbeddingGeneratorMaxBatchSize()` and `GetEmbeddingLength()` expose the engine's batching limit and vector dimensionality. Intended for consumer extensions building retrieval/similarity features (e.g. semantic search over tickets or FAQ entries); this extension does not persist or index embeddings itself.
 
+- **DecisionService** (`src/Service/DecisionService.php`): Validates named Noul, Choice, and Score questions and returns LLPhant's `NoulAnswer`, `ChoiceAnswer`, and `ScoreAnswer` instances in `DecisionResponse::aAnswers`, keyed by caller-supplied question IDs. The type handlers validate question definitions and ensure each answer class matches its question type; AI Base does not further validate answer-value ranges or consistency with criteria. `GetNoul()`, `GetChoice()`, and `GetScore()` return one LLPhant answer by ID. The decision engine interface returns the same `DecisionResponse` wrapper, including provider metadata and input/output token usage. Decision calls use LLPhant's `JevClassifier`; configure its API base for TypeSafe, OpenRouter, or another compatible System One endpoint. There is no separate OpenRouter decision engine. This service is separate from `AIService` and intentionally does not run guardrails.
+
+Example:
+
+```php
+use Itomig\iTop\Extension\AIBase\Engine\Decision\JevClassifierDecisionEngine;
+use Itomig\iTop\Extension\AIBase\Request\DecisionRequest;
+use Itomig\iTop\Extension\AIBase\Service\DecisionService;
+
+$oEngine = JevClassifierDecisionEngine::GetEngine([
+    'api_key' => 'YOUR_JEV_API_KEY',
+    'model' => 'jev-latest',
+]);
+$oDecisionService = new DecisionService($oEngine);
+$oResponse = $oDecisionService->Decide(new DecisionRequest(
+    mState: ['description' => 'My card was charged twice.'],
+    aQuestions: [
+        'category' => [
+            'type' => 'choice',
+            'instructions' => 'Choose the correct category.',
+            'criteria' => [
+                'billing' => 'Charges, invoices, and payment problems.',
+                'support' => 'General product questions and help.',
+            ],
+        ],
+    ],
+));
+$sSelectedOption = $oResponse->aAnswers['category']->choice;
+$aProviderUsage = $oResponse->aMetadata['usage'] ?? [];
+```
+
+The engine posts to `https://openrouter.ai/api/v1/systemone`. Choice criteria support up to 255 options; the decision classifier reserves one option for “no match”, leaving room for at most 254 candidates per call. The API key and model can be supplied by the consuming extension's configuration rather than the chat engine settings.
+
 ### Helper Classes
 
 - **AIBaseHelper** (`src/Helper/AIBaseHelper.php`): Utility functions for AI interactions
@@ -740,7 +773,7 @@ After adding a class under `src/`, run `composer dump-autoload -o` and commit th
 
 **Included Dependencies:**
 - `composer-runtime-api: ^2.0`
-- `theodo-group/llphant: ^1.0` (locked at `1.0.1`) — **major upgrade as of 26.3.0**, up from `^0.10.1`. This library provides the chat, tool-calling and embedding abstractions this extension builds on (`EmbeddingGeneratorInterface`, `Document`, `FunctionInfo`, the provider-specific chat classes). If your own extension calls LLPhant classes directly rather than only going through `AIService`/`EmbeddingService`, check LLPhant's own changelog for breaking changes between 0.10 and 1.0 before updating.
+- `theodo-group/llphant: ^1.10.11` (locked at `1.10.11`) — provides the chat, tool-calling, embedding, and Jev classification abstractions this extension builds on (`EmbeddingGeneratorInterface`, `Document`, `FunctionInfo`, provider-specific chat classes, and `JevClassifier`). The 26.3.0 release upgraded LLPhant from `^0.10.1` to `^1.0`; callers using LLPhant directly should check its changelog for breaking changes.
 
 ### Adding a New AI Provider
 
@@ -777,6 +810,119 @@ If adding additional response processing, add it to the `AIBaseHelper` class.
 - **Vendor Dependencies**: `vendor/` (committed to repository, standard for iTop extensions)
 
 ## Version History
+
+### Choice decision API and DTOs - 16/11/2026
+
+**Implemented:** Added immutable `DecisionRequest` and `DecisionResponse` DTOs and a separate, Choice-only decision engine/service for OpenRouter System One. A request carries a string or array state plus named Choice questions; the response maps each question name to a `ChoiceDecision` and carries available provider response metadata in `aMetadata`. Callers choose question IDs and use them to access the corresponding answer. The feature does not alter the chat engine contract or invoke AI Base guardrails.
+
+**Test interface:** Construct `DecisionRequest` with a string or array state and named Choice question definitions, then pass it to `DecisionService::Decide()`. Observe a `DecisionResponse` whose `aAnswers` map is keyed by the caller's question IDs and contains a `ChoiceDecision` for each requested Choice question.
+
+| Edge case | Expected behavior | Test(s) |
+| --- | --- | --- |
+| Valid named Choice questions | `Decide()` returns one `ChoiceDecision` per requested question, keyed by question name, with the selected option, probability map, and optional confidence; available provider/usage fields are exposed in `aMetadata`. | Not covered; automated tests were not requested. |
+| Missing API key or empty configuration | Throw `AIConfigurationException` before making a request. | Not covered; automated tests were not requested. |
+| HTTP or transport failure | Propagate the provider/client exception; do not return a success-shaped fallback. | Not covered; automated tests were not requested. |
+| Malformed JSON, missing/unexpected answers, or invalid Choice response | Throw `AIResponseException`. | Not covered; automated tests were not requested. |
+| Empty question map, blank question ID/instructions, unsupported type, invalid criteria, or fewer than 1 / more than 255 options | Reject the request with `InvalidArgumentException` before making a provider request. | Not covered; automated tests were not requested. |
+| Non-JSON-serializable state | Throw `AIResponseException` before making a provider request. | Not covered; automated tests were not requested. |
+| Named question ID | The provider request and `DecisionResponse::aAnswers` use the question ID supplied by the caller. | Focused manual fake-client smoke check; no automated test requested. |
+| Consumer invokes the decision service | No guardrail checks run; chat `AIService` behavior remains unchanged. | Manual contract check; not run. |
+
+### LLPhant Jev classifier adapter - 17/11/2026
+
+**Implemented:** Added provider-neutral `GenericDecisionEngine` for shared Choice request validation and answer mapping, then made both `JevClassifierDecisionEngine` and `OpenRouterDecisionEngine` extend it. At that point, the Jev engine adapted LLPhant's `JevClassifier`, and OpenRouter remained available as a separate engine. The later LLPhant decision answers entry below removes that direct engine while retaining OpenRouter support through the Jev-compatible API base. Updated the LLPhant dependency to `^1.10.11`.
+
+**Test interface:** Construct `JevClassifierDecisionEngine` with a `JevClassifier` and pass a named-question `DecisionRequest` to `Decide()`. Observe named `ChoiceDecision` answers and `provider`, `model`, `usage.input_tokens`, and `usage.output_tokens` metadata.
+
+| Edge case | Expected behavior | Test(s) |
+| --- | --- | --- |
+| Valid named Choice request | Adapt each question to LLPhant `ChoiceType`, return named `ChoiceDecision` answers, and expose token usage metadata. | Focused manual fake-client smoke check; no automated test requested. |
+| Array state | Serialize the state as JSON text before calling LLPhant. | Focused manual fake-client smoke check; no automated test requested. |
+| Empty/invalid question or unsupported type | Reject locally with `InvalidArgumentException` before calling LLPhant. | Not covered by automated tests; tests were not requested. |
+| Malformed Jev answer or invalid probability map | Throw `AIResponseException`; do not return a partial response. | Not covered by automated tests; tests were not requested. |
+| Provider HTTP or transport failure | Propagate the provider/client exception. | Not covered by automated tests; tests were not requested. |
+
+### Noul, Choice, and Score decision types - 17/11/2026
+
+**User story:** As a decision-service caller, I need to submit validated questions of different decision types and receive typed answers keyed by my own IDs.
+
+**Implemented:** Moved request validation and typed answer deserialization into `DecisionService`. Added Noul and Score result types plus a shared answer interface and type handlers for Noul, Choice, and Score. The engine interface now returns a neutral `DecisionEngineResponse`; Jev maps the three types to LLPhant's `NoulType`, `ChoiceType`, and `ScoreType`, while OpenRouter forwards the same question types to the [TypeSafe System One API](https://docs.typesafe.ai/api/system-one.md). Added `GetNoul()`, `GetChoice()`, and `GetScore()` helpers that require the caller's question ID. At initial implementation, question instructions and criteria were required to be non-empty strings; see [Relaxed decision input text validation](#relaxed-decision-input-text-validation) for the current behavior.
+
+**Test interface:** Call `DecisionService::Decide()` with a mixed `DecisionRequest` and inspect the typed answer object under each caller-supplied ID. Call `GetNoul()`, `GetChoice()`, or `GetScore()` with a request and the corresponding question ID to receive one typed answer.
+
+| Edge case | Expected behavior | Test(s) |
+| --- | --- | --- |
+| Mixed valid Noul, Choice, and Score request | Return `NoulDecision`, `ChoiceDecision`, and `ScoreDecision` values under their original question IDs and preserve provider metadata. | Passed focused manual fake-engine and LLPhant fake-classifier smoke check; automated tests were not requested. |
+| Unknown question type or malformed question definition | Throw `InvalidArgumentException` before invoking the engine. | Unsupported-type rejection passed a focused manual fake-engine check; other malformed definitions were not separately exercised. Automated tests were not requested. |
+| Missing, unexpected, mismatched, or malformed answer | Throw `AIResponseException`; do not return a partial `DecisionResponse`. | Passed focused manual fake-engine checks for mismatched and malformed responses; automated tests were not requested. |
+| Typed getter receives an unknown ID or a question of another type | Throw `InvalidArgumentException` before invoking the engine. | Not separately covered; the smoke check verified successful typed getters. Automated tests were not requested. |
+| Provider transport failure | Propagate the provider/client exception. | Not covered; no live provider call was made. |
+
+### Decision API namespace organization - 17/11/2026
+
+**Implemented:** Moved `DecisionRequest` to `Request`, public decision responses and typed answers to `Result\Decision`, and the engine-only `DecisionEngineResponse` beside the decision engine under `Engine\Decision`. This is a namespace change: consumers must update imports.
+
+**Test interface:** Construct `Itomig\iTop\Extension\AIBase\Request\DecisionRequest`, pass it to `DecisionService::Decide()`, and observe an `Itomig\iTop\Extension\AIBase\Result\Decision\DecisionResponse` containing typed answers.
+
+| Edge case | Expected behavior | Test(s) |
+| --- | --- | --- |
+| Consumer uses the new request and typed-result namespaces | Composer autoloads the request, response, and answer classes from their new paths. | Composer autoload refresh and focused PHP lint/PHPStan; no PHPUnit tests were requested. |
+| Decision engine returns its raw response | `DecisionEngineResponse` resolves from `Engine\Decision` and remains the engine interface return type. | Focused PHP lint/PHPStan; no PHPUnit tests were requested. |
+| External decision-classifier consumer | Updated imports continue to resolve `DecisionRequest` and `ChoiceDecision`. | Focused PHP lint/PHPStan in the consumer extension; no PHPUnit tests were requested. |
+
+### LLPhant decision answers and single Jev engine - 17/11/2026
+
+**Implemented:** Replaced AI Base's `ChoiceDecision`, `NoulDecision`, `ScoreDecision`, and answer interface with LLPhant's `ChoiceAnswer`, `NoulAnswer`, `ScoreAnswer`, and shared `Answer` base class. The Jev engine now keeps LLPhant's answer objects intact and exposes their token counts in `DecisionResponse::aMetadata['usage']`. The engine interface now returns the existing `DecisionResponse`; `DecisionService` validates answer IDs and classes and returns the same wrapper. AI Base no longer checks answer-value ranges or consistency between answers and question criteria. Removed the redundant `DecisionEngineResponse` and direct `OpenRouterDecisionEngine`; OpenRouter can still be used by configuring the Jev engine's API base.
+
+**Breaking changes:** Consumers must type-hint LLPhant answer classes instead of the removed AI Base answer classes. Custom decision engines must now return `Result\Decision\DecisionResponse` instead of `Engine\Decision\DecisionEngineResponse`. `OpenRouterDecision` is no longer an engine name; use `JevClassifier` with the desired compatible System One API base.
+
+**Test interface:** Pass a mixed Noul/Choice/Score `DecisionRequest` through a decision engine and `DecisionService::Decide()`; observe the same `DecisionResponse` wrapper containing LLPhant answer objects keyed by question ID and token usage under `aMetadata['usage']`.
+
+| Edge case | Expected behavior | Test(s) |
+| --- | --- | --- |
+| Mixed valid Noul, Choice, and Score request | Return `NoulAnswer`, `ChoiceAnswer`, and `ScoreAnswer` directly, preserve question IDs, and include input/output token usage in metadata. | Passed focused offline fake-Jev smoke check; no automated tests were requested. |
+| Provider returns the wrong answer class for a question | Throw `AIResponseException`; do not return an incorrectly typed answer. | Passed focused offline fake-engine smoke check; no automated tests were requested. |
+| Engine and service exchange a response | The engine returns `DecisionResponse`; the service validates and returns that same wrapper instance. | Passed focused offline fake-engine response-identity smoke check; no automated tests were requested. |
+| Correct LLPhant answer class contains out-of-range values or mismatched criteria/probability fields | AI Base returns the answer without extra semantic validation. | Passed focused offline fake-engine smoke check; no automated tests were requested. |
+| The removed `OpenRouterDecisionEngine` class is checked through Composer autoload | It is unavailable; configure `JevClassifier` with an OpenRouter API base instead. | Passed focused Composer autoload check; no live provider call. |
+
+### Simplified decision answer validation - 17/11/2026
+
+**Implemented:** Removed the extra type-discriminator, probability/confidence range, Noul/Score range, Choice-membership, probability-key, and Score-legend checks from the decision type handlers. Request validation and matching LLPhant answer classes remain enforced.
+
+**Test interface:** Call `DecisionService::Decide()` with valid question definitions and correctly typed LLPhant answers whose values do not match the criteria; observe that the response is returned. A correctly typed request answered with the wrong LLPhant answer class still raises `AIResponseException`.
+
+| Edge case | Expected behavior | Test(s) |
+| --- | --- | --- |
+| Correct LLPhant answer class has out-of-range values or mismatched criteria metadata | Return the answer without AI Base semantic value checks. | Passed focused offline fake-engine smoke check; no automated tests were requested. |
+| LLPhant answer class does not match the question type | Throw `AIResponseException`. | Passed focused offline fake-engine smoke check; no automated tests were requested. |
+| Choice request has invalid/empty criteria | Throw `InvalidArgumentException` before accepting the response. | Passed focused offline fake-engine smoke check; no automated tests were requested. |
+
+### Relaxed decision input text validation - 18/11/2026
+
+**Implemented:** Decision question instructions must remain strings but may be empty or whitespace-only. Optional Noul criteria must still contain exactly the `true` and `false` string fields, but their values may be empty or whitespace-only. Other question and criteria validation is unchanged.
+
+**Test interface:** Call `DecisionService::Decide()` with an Noul `DecisionRequest` and a fake engine that returns a matching `NoulAnswer`. Observe that string instructions and criteria are accepted, including empty strings; non-string instructions or criteria and malformed Noul criteria still raise `InvalidArgumentException` before the engine is called.
+
+| Edge case | Expected behavior | Test(s) |
+| --- | --- | --- |
+| Non-empty string instructions and Noul criteria | Accept the question and proceed to the decision engine. | Focused manual handler smoke check; automated tests were not requested. |
+| Empty or whitespace-only string instructions | Accept the question; preserve the supplied string. | Focused manual handler smoke check; automated tests were not requested. |
+| Empty or whitespace-only `true`/`false` Noul descriptions | Accept the criteria when both required fields are strings. | Focused manual handler smoke check; automated tests were not requested. |
+| Non-string instructions or criteria values | Throw `InvalidArgumentException`. | Focused manual handler smoke check; automated tests were not requested. |
+| Missing or extra Noul criteria keys | Throw `InvalidArgumentException`; only `true` and `false` are supported. | Focused manual handler smoke check; automated tests were not requested. |
+
+### Removing unused provider-tools HTTP middleware - 18/11/2026
+
+**Implemented:** Removed the unused `ProviderToolsHttpClientFactory` and its helper-specific tests. Engine network-error handling retains the `ConnectException`-to-`AINetworkException` mapping while provider requests continue through LLPhant. AI Base declares Guzzle directly for the exception type and LLPhant also requires it transitively.
+
+**Test interface:** Use Composer's locked dependency metadata to verify Guzzle is a direct AI Base requirement and remains required by LLPhant. Exercise an LLPhant-backed engine connection failure and observe `AINetworkException`.
+
+| Edge case | Expected behavior | Test(s) |
+| --- | --- | --- |
+| Provider-tools helper lookup | The removed helper is not autoloadable and has no production call sites. | Composer autoload regeneration and workspace symbol search; no automated tests were requested. |
+| LLPhant client reports a network failure | The engine translates Guzzle's `ConnectException` to `AINetworkException`. | Not covered by automated tests; tests were not requested and no provider request was made. |
+| Dependency resolution through LLPhant | Guzzle is a direct AI Base requirement and remains required transitively by LLPhant. | Composer lock validation; no automated tests were requested. |
 
 ### 26.3.0 (TBD)
 
