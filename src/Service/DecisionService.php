@@ -44,7 +44,7 @@ class DecisionService
 		return $this->ExecuteDecision($oRequest, $aQuestions);
 	}
 
-	public function GetNoul(DecisionRequest $oRequest, string $sQuestionId): NoulAnswer
+	public function DecideNoul(DecisionRequest $oRequest, string $sQuestionId): NoulAnswer
 	{
 		$oAnswer = $this->GetAnswerOfType($oRequest, $sQuestionId, 'noul');
 		if (!($oAnswer instanceof NoulAnswer)) {
@@ -54,7 +54,7 @@ class DecisionService
 		return $oAnswer;
 	}
 
-	public function GetChoice(DecisionRequest $oRequest, string $sQuestionId): ChoiceAnswer
+	public function DecideChoice(DecisionRequest $oRequest, string $sQuestionId): ChoiceAnswer
 	{
 		$oAnswer = $this->GetAnswerOfType($oRequest, $sQuestionId, 'choice');
 		if (!($oAnswer instanceof ChoiceAnswer)) {
@@ -64,7 +64,7 @@ class DecisionService
 		return $oAnswer;
 	}
 
-	public function GetScore(DecisionRequest $oRequest, string $sQuestionId): ScoreAnswer
+	public function DecideScore(DecisionRequest $oRequest, string $sQuestionId): ScoreAnswer
 	{
 		$oAnswer = $this->GetAnswerOfType($oRequest, $sQuestionId, 'score');
 		if (!($oAnswer instanceof ScoreAnswer)) {

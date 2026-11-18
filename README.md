@@ -291,7 +291,7 @@ Unlike the chat engines, embedding engines are **not** discovered via `Interface
 
 - **EmbeddingService** (`src/Service/EmbeddingService.php`): **New in 26.3.0.** Thin wrapper around an `iEmbeddingEngineInterface` engine's LLPhant generator. Provides `GetEmbedding(string $sMessage): array` for a single text, `GetEmbeddingsForTexts(array $aTexts): array` for a batch keyed by the caller's own array keys, and `GetEmbeddingsForChunkedTexts(array $aChunkedTexts): array` for pre-chunked documents (nested by chunk number). `GetEmbeddingGeneratorMaxBatchSize()` and `GetEmbeddingLength()` expose the engine's batching limit and vector dimensionality. Intended for consumer extensions building retrieval/similarity features (e.g. semantic search over tickets or FAQ entries); this extension does not persist or index embeddings itself.
 
-- **DecisionService** (`src/Service/DecisionService.php`): Validates named Noul, Choice, and Score questions and returns LLPhant's `NoulAnswer`, `ChoiceAnswer`, and `ScoreAnswer` instances in `DecisionResponse::aAnswers`, keyed by caller-supplied question IDs. The type handlers validate question definitions and ensure each answer class matches its question type; AI Base does not further validate answer-value ranges or consistency with criteria. `GetNoul()`, `GetChoice()`, and `GetScore()` return one LLPhant answer by ID. The decision engine interface returns the same `DecisionResponse` wrapper, including provider metadata and input/output token usage. Decision calls use LLPhant's `JevClassifier`; configure its API base for TypeSafe, OpenRouter, or another compatible System One endpoint. There is no separate OpenRouter decision engine. This service is separate from `AIService` and intentionally does not run guardrails.
+- **DecisionService** (`src/Service/DecisionService.php`): Validates named Noul, Choice, and Score questions and returns LLPhant's `NoulAnswer`, `ChoiceAnswer`, and `ScoreAnswer` instances in `DecisionResponse::aAnswers`, keyed by caller-supplied question IDs. The type handlers validate question definitions and ensure each answer class matches its question type; AI Base does not further validate answer-value ranges or consistency with criteria. `DecideNoul()`, `DecideChoice()`, and `DecideScore()` each execute a decision request and return the matching LLPhant answer by question ID. The decision engine interface returns the same `DecisionResponse` wrapper, including provider metadata and input/output token usage. Decision calls use LLPhant's `JevClassifier`; configure its API base for TypeSafe, OpenRouter, or another compatible System One endpoint. There is no separate OpenRouter decision engine. This service is separate from `AIService` and intentionally does not run guardrails.
 
 Example:
 
@@ -846,9 +846,9 @@ If adding additional response processing, add it to the `AIBaseHelper` class.
 
 **User story:** As a decision-service caller, I need to submit validated questions of different decision types and receive typed answers keyed by my own IDs.
 
-**Implemented:** Moved request validation and typed answer deserialization into `DecisionService`. Added Noul and Score result types plus a shared answer interface and type handlers for Noul, Choice, and Score. The engine interface now returns a neutral `DecisionEngineResponse`; Jev maps the three types to LLPhant's `NoulType`, `ChoiceType`, and `ScoreType`, while OpenRouter forwards the same question types to the [TypeSafe System One API](https://docs.typesafe.ai/api/system-one.md). Added `GetNoul()`, `GetChoice()`, and `GetScore()` helpers that require the caller's question ID. At initial implementation, question instructions and criteria were required to be non-empty strings; see [Relaxed decision input text validation](#relaxed-decision-input-text-validation) for the current behavior.
+**Implemented:** Moved request validation and typed answer deserialization into `DecisionService`. Added Noul and Score result types plus a shared answer interface and type handlers for Noul, Choice, and Score. The engine interface now returns a neutral `DecisionEngineResponse`; Jev maps the three types to LLPhant's `NoulType`, `ChoiceType`, and `ScoreType`, while OpenRouter forwards the same question types to the [TypeSafe System One API](https://docs.typesafe.ai/api/system-one.md). The service provides `DecideNoul()`, `DecideChoice()`, and `DecideScore()` helpers that execute a request and return an answer by question ID. At initial implementation, question instructions and criteria were required to be non-empty strings; see [Relaxed decision input text validation](#relaxed-decision-input-text-validation) for the current behavior.
 
-**Test interface:** Call `DecisionService::Decide()` with a mixed `DecisionRequest` and inspect the typed answer object under each caller-supplied ID. Call `GetNoul()`, `GetChoice()`, or `GetScore()` with a request and the corresponding question ID to receive one typed answer.
+**Test interface:** Call `DecisionService::Decide()` with a mixed `DecisionRequest` and inspect the typed answer object under each caller-supplied ID. Call `DecideNoul()`, `DecideChoice()`, or `DecideScore()` with a request and the corresponding question ID to receive one typed answer.
 
 | Edge case | Expected behavior | Test(s) |
 | --- | --- | --- |
@@ -869,6 +869,17 @@ If adding additional response processing, add it to the `AIBaseHelper` class.
 | Consumer uses the new request and typed-result namespaces | Composer autoloads the request, response, and answer classes from their new paths. | Composer autoload refresh and focused PHP lint/PHPStan; no PHPUnit tests were requested. |
 | Decision engine returns its raw response | `DecisionEngineResponse` resolves from `Engine\Decision` and remains the engine interface return type. | Focused PHP lint/PHPStan; no PHPUnit tests were requested. |
 | External decision-classifier consumer | Updated imports continue to resolve `DecisionRequest` and `ChoiceDecision`. | Focused PHP lint/PHPStan in the consumer extension; no PHPUnit tests were requested. |
+
+### Removing obsolete DecisionRequest DTO - 18/11/2026
+
+**Implemented:** Removed the unused `Result\DecisionRequest` duplicate. Decision inputs use `Request\DecisionRequest`; decision outputs remain `Result\Decision\DecisionResponse`.
+
+**Test interface:** Construct `Itomig\iTop\Extension\AIBase\Request\DecisionRequest` and pass it to `DecisionService::Decide()`. The removed `Itomig\iTop\Extension\AIBase\Result\DecisionRequest` class must no longer resolve.
+
+| Edge case | Expected behavior | Test(s) |
+| --- | --- | --- |
+| Consumer submits a supported decision request | `DecisionService::Decide()` accepts `Request\DecisionRequest` and returns a decision response. | Focused Composer autoload check; no new automated tests requested. |
+| Consumer references the removed result-namespace request | The obsolete class no longer resolves; callers use `Request\DecisionRequest`. | Focused Composer autoload check; no new automated tests requested. |
 
 ### LLPhant decision answers and single Jev engine - 17/11/2026
 
@@ -923,6 +934,19 @@ If adding additional response processing, add it to the `AIBaseHelper` class.
 | Provider-tools helper lookup | The removed helper is not autoloadable and has no production call sites. | Composer autoload regeneration and workspace symbol search; no automated tests were requested. |
 | LLPhant client reports a network failure | The engine translates Guzzle's `ConnectException` to `AINetworkException`. | Not covered by automated tests; tests were not requested and no provider request was made. |
 | Dependency resolution through LLPhant | Guzzle is a direct AI Base requirement and remains required transitively by LLPhant. | Composer lock validation; no automated tests were requested. |
+
+### DecisionService execution method names - 18/11/2026
+
+**Implemented:** Renamed `GetNoul()`, `GetChoice()`, and `GetScore()` to `DecideNoul()`, `DecideChoice()`, and `DecideScore()`. These methods execute a decision request; the old names are removed with no compatibility aliases.
+
+**Breaking changes:** Consumers calling the old helper names must update to the corresponding `Decide*()` method.
+
+**Test interface:** Call the matching `DecisionService::DecideNoul()`, `DecideChoice()`, or `DecideScore()` with a `DecisionRequest` and question ID. Observe that the method executes the request and returns the corresponding LLPhant answer type.
+
+| Edge case | Expected behavior | Test(s) |
+| --- | --- | --- |
+| Matching Noul, Choice, or Score question | Execute the decision request and return `NoulAnswer`, `ChoiceAnswer`, or `ScoreAnswer`, respectively. | Not covered by automated tests; tests were not requested for this rename. |
+| Missing question ID or question type does not match the selected method | Throw `InvalidArgumentException` before invoking the decision engine. | Not covered by automated tests; behavior is unchanged by this rename. |
 
 ### 26.3.0 (TBD)
 

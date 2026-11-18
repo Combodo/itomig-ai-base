@@ -303,7 +303,6 @@ class ComposerStaticInitdf7ec70b2d744da1ced5beefd2c76634
         'Itomig\\iTop\\Extension\\AIBase\\Helper\\AISystemTools' => __DIR__ . '/../..' . '/src/Helper/AISystemTools.php',
         'Itomig\\iTop\\Extension\\AIBase\\Request\\DecisionRequest' => __DIR__ . '/../..' . '/src/Request/DecisionRequest.php',
         'Itomig\\iTop\\Extension\\AIBase\\Result\\AIResult' => __DIR__ . '/../..' . '/src/Result/AIResult.php',
-        'Itomig\\iTop\\Extension\\AIBase\\Result\\DecisionRequest' => __DIR__ . '/../..' . '/src/Result/DecisionRequest.php',
         'Itomig\\iTop\\Extension\\AIBase\\Result\\Decision\\DecisionResponse' => __DIR__ . '/../..' . '/src/Result/Decision/DecisionResponse.php',
         'Itomig\\iTop\\Extension\\AIBase\\Result\\GuardrailVerdict' => __DIR__ . '/../..' . '/src/Result/GuardrailVerdict.php',
         'Itomig\\iTop\\Extension\\AIBase\\Service\\AIService' => __DIR__ . '/../..' . '/src/Service/AIService.php',
