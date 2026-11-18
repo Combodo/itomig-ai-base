@@ -162,7 +162,6 @@ return array(
     'Itomig\\iTop\\Extension\\AIBase\\Helper\\AISystemTools' => $baseDir . '/src/Helper/AISystemTools.php',
     'Itomig\\iTop\\Extension\\AIBase\\Request\\DecisionRequest' => $baseDir . '/src/Request/DecisionRequest.php',
     'Itomig\\iTop\\Extension\\AIBase\\Result\\AIResult' => $baseDir . '/src/Result/AIResult.php',
-    'Itomig\\iTop\\Extension\\AIBase\\Result\\DecisionRequest' => $baseDir . '/src/Result/DecisionRequest.php',
     'Itomig\\iTop\\Extension\\AIBase\\Result\\Decision\\DecisionResponse' => $baseDir . '/src/Result/Decision/DecisionResponse.php',
     'Itomig\\iTop\\Extension\\AIBase\\Result\\GuardrailVerdict' => $baseDir . '/src/Result/GuardrailVerdict.php',
     'Itomig\\iTop\\Extension\\AIBase\\Service\\AIService' => $baseDir . '/src/Service/AIService.php',
