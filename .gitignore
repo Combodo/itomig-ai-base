@@ -10,3 +10,4 @@ CLAUDE.md
 .release-*-scope.md
 .guardrail-*.md
 test/
+.idea
